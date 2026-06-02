@@ -352,7 +352,7 @@ const SellerDashboard = () => {
               DASHBOARD PENJUAL
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight" style={{ textShadow: '2px 2px 0px #FACC15' }}>
-              🍳 KONTROL TOKO LUMER
+              🍳 halaman pengelola
             </h1>
             <p className="text-lg font-black text-indigo-700 mt-1 flex items-center gap-1">
               Aktif sebagai Admin: <span className="underline text-gray-900">{user.username || 'Owner'}</span> ⚡
