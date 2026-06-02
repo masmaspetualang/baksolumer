@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, X, Check, Zap, Star } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, X, Check, Zap, Star, Send } from 'lucide-react';
 
 const BaksoWebsite = () => {
   const [cart, setCart] = useState([]);
@@ -7,6 +7,9 @@ const BaksoWebsite = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [comicBursts, setComicBursts] = useState([]);
   const [stars, setStars] = useState([]);
+  const [buyerName, setBuyerName] = useState('');
+  const [buyerAddress, setBuyerAddress] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   const menuItems = [
     { id: 1, name: 'Bakso Keju Lumer', price: 15000, emoji: '🧀', desc: 'Kejunya meleleh dimulut!', color: 'from-yellow-400 to-orange-500', comic: 'POW!' },
@@ -70,10 +73,45 @@ const BaksoWebsite = () => {
   };
 
   const handleCheckout = () => {
+    if (!buyerName.trim() || !buyerAddress.trim()) {
+      setValidationError('Nama dan Alamat Lengkap wajib diisi!');
+      return;
+    }
+    setValidationError('');
+
+    const formattedTotalPrice = getTotalPrice().toLocaleString('id-ID');
+    let orderDetails = `*🔥 PESANAN BARU - BAKSO KEJU LUMER 🔥*\n\n`;
+    orderDetails += `*Data Pembeli:*\n`;
+    orderDetails += `👤 *Nama:* ${buyerName.trim()}\n`;
+    orderDetails += `📍 *Alamat:* ${buyerAddress.trim()}\n\n`;
+    orderDetails += `*Detail Item:*\n`;
+    orderDetails += `----------------------------------------\n`;
+    
+    cart.forEach(item => {
+      const itemSubtotal = (item.price * item.qty).toLocaleString('id-ID');
+      orderDetails += `• *${item.name}*\n`;
+      orderDetails += `  Qty: ${item.qty}x\n`;
+      orderDetails += `  Harga: Rp ${item.price.toLocaleString('id-ID')}\n`;
+      orderDetails += `  Subtotal: Rp ${itemSubtotal}\n\n`;
+    });
+    
+    orderDetails += `----------------------------------------\n`;
+    orderDetails += `📦 *Total Item:* ${getTotalItems()}\n`;
+    orderDetails += `💰 *TOTAL BAYAR:* *Rp ${formattedTotalPrice}*\n\n`;
+    orderDetails += `Mohon segera diproses ya, terima kasih! 🙏`;
+
+    const encodedText = encodeURIComponent(orderDetails);
+    const whatsappUrl = `https://wa.me/6281311132611?text=${encodedText}`;
+
+    // Open WhatsApp link in new tab
+    window.open(whatsappUrl, '_blank');
+
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
       setCart([]);
+      setBuyerName('');
+      setBuyerAddress('');
       setShowCart(false);
     }, 3000);
   };
@@ -358,6 +396,47 @@ const BaksoWebsite = () => {
                     ))}
                   </div>
 
+                  {/* Form Data Pembeli */}
+                  <div className="bg-white rounded-2xl p-6 mb-6 border-6 border-black shadow-brutal">
+                    <h4 className="text-2xl font-black text-gray-900 mb-4 flex items-center gap-2" style={{ textShadow: '1px 1px 0px #000' }}>
+                      📝 DATA PEMBELI
+                    </h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-black text-gray-900 mb-1">NAMA LENGKAP</label>
+                        <input
+                          type="text"
+                          value={buyerName}
+                          onChange={(e) => {
+                            setBuyerName(e.target.value);
+                            if (validationError) setValidationError('');
+                          }}
+                          placeholder="Masukkan nama Anda..."
+                          className="w-full bg-gray-100 border-4 border-black rounded-xl p-3 text-lg font-bold text-gray-900 focus:outline-none focus:ring-4 focus:ring-yellow-400 placeholder-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-black text-gray-900 mb-1">ALAMAT LENGKAP PENGIRIMAN</label>
+                        <textarea
+                          value={buyerAddress}
+                          onChange={(e) => {
+                            setBuyerAddress(e.target.value);
+                            if (validationError) setValidationError('');
+                          }}
+                          placeholder="Masukkan alamat pengiriman lengkap..."
+                          rows="3"
+                          className="w-full bg-gray-100 border-4 border-black rounded-xl p-3 text-lg font-bold text-gray-900 focus:outline-none focus:ring-4 focus:ring-yellow-400 placeholder-gray-500 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {validationError && (
+                    <div className="bg-red-500 text-white font-black p-4 rounded-xl border-4 border-black mb-6 text-center animate-pulse">
+                      ⚠️ {validationError}
+                    </div>
+                  )}
+
                   <div className="bg-yellow-400 rounded-2xl p-6 mb-6 border-6 border-black shadow-brutal">
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-2xl font-black text-gray-900">Total Item:</span>
@@ -375,8 +454,8 @@ const BaksoWebsite = () => {
                     onClick={handleCheckout}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black text-3xl py-6 rounded-2xl transition-all transform hover:scale-105 border-6 border-black shadow-brutal flex items-center justify-center gap-3"
                   >
-                    <Check size={32} />
-                    BAYAR SEKARANG!
+                    <Send size={32} />
+                    PESAN VIA WHATSAPP!
                   </button>
                 </>
               )}
@@ -391,14 +470,14 @@ const BaksoWebsite = () => {
               {/* Success burst effects */}
               <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-6xl font-black text-yellow-400 animate-bounce"
                    style={{ textShadow: '4px 4px 0px #000' }}>
-                SUCCESS!
+                BERHASIL!
               </div>
               <div className="text-9xl mb-6 animate-wiggle">✅</div>
               <div className="bg-white rounded-2xl p-6 border-6 border-black mb-4">
-                <h3 className="text-4xl font-black text-gray-900 mb-2">PEMBAYARAN SUKSES!</h3>
-                <p className="text-2xl font-bold text-gray-700">Terima kasih! 🎉</p>
+                <h3 className="text-4xl font-black text-gray-900 mb-2">PESANAN DIBUAT!</h3>
+                <p className="text-2xl font-bold text-gray-700">Membuka WhatsApp... 🎉</p>
               </div>
-              <p className="text-xl font-black text-white drop-shadow-lg">Pesanan sedang diproses...</p>
+              <p className="text-xl font-black text-white drop-shadow-lg">Silakan kirim pesan WhatsApp yang muncul.</p>
               
               {/* Celebration stars */}
               <div className="absolute top-4 left-4 text-4xl animate-spin-slow">⭐</div>
