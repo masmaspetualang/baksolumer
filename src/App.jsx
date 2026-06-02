@@ -1,7 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, X, Check, Zap, Star, Send } from 'lucide-react';
+import { Routes, Route, useNavigate, Link } from 'react-router-dom';
+import { ShoppingCart, Plus, Minus, X, Check, Zap, Star, Send, ShieldAlert, Award } from 'lucide-react';
 
-const BaksoWebsite = () => {
+// Import Admin Components
+import AdminLogin from './components/AdminLogin';
+import SellerDashboard from './components/SellerDashboard';
+
+// ========================================================
+// 🎭 DYNAMIC STYLE MAPPER FOR CATALOG (PRESERVING AESTHETICS)
+// ========================================================
+const itemStylingPreset = {
+  'bakso keju lumer': { emoji: '🧀', color: 'from-yellow-400 to-orange-500', comic: 'POW!' },
+  'bakso keju kuah': { emoji: '🍜', color: 'from-blue-400 to-cyan-500', comic: 'SLURP!' },
+  'bakso biasa': { emoji: '🍲', color: 'from-red-400 to-pink-500', comic: 'BOOM!' },
+  'mie ayam': { emoji: '🍝', color: 'from-green-400 to-emerald-500', comic: 'YUM!' },
+  'mie ayam bakso': { emoji: '🍜', color: 'from-purple-400 to-pink-500', comic: 'WOW!' }
+};
+
+const getStyling = (name, index) => {
+  const key = name.toLowerCase().trim();
+  if (itemStylingPreset[key]) return itemStylingPreset[key];
+
+  // Fallbacks jika nama item berbeda di database
+  const fallbackColors = [
+    'from-yellow-400 to-orange-500',
+    'from-blue-400 to-cyan-500',
+    'from-red-400 to-pink-500',
+    'from-green-400 to-emerald-500',
+    'from-purple-400 to-pink-500'
+  ];
+  const fallbackEmojis = ['🍜', '🍲', '🍝', '🧀', '🍔'];
+  const fallbackComics = ['POW!', 'BAM!', 'BOOM!', 'YUM!', 'WOW!'];
+
+  return {
+    emoji: fallbackEmojis[index % fallbackEmojis.length],
+    color: fallbackColors[index % fallbackColors.length],
+    comic: fallbackComics[index % fallbackComics.length]
+  };
+};
+
+// ========================================================
+// 🛒 CUSTOMER HOME STOREFRONT VIEW
+// ========================================================
+const Storefront = () => {
+  const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -10,17 +52,14 @@ const BaksoWebsite = () => {
   const [buyerName, setBuyerName] = useState('');
   const [buyerAddress, setBuyerAddress] = useState('');
   const [validationError, setValidationError] = useState('');
-
-  const menuItems = [
-    { id: 1, name: 'Bakso Keju Lumer', price: 15000, emoji: '🧀', desc: 'Kejunya meleleh dimulut!', color: 'from-yellow-400 to-orange-500', comic: 'POW!' },
-    { id: 2, name: 'Bakso Keju Kuah', price: 15000, emoji: '🍜', desc: 'Kuah kaldu super mantap!', color: 'from-blue-400 to-cyan-500', comic: 'SLURP!' },
-    { id: 3, name: 'Bakso Biasa', price: 12000, emoji: '🍲', desc: 'Klasik tapi juara!', color: 'from-red-400 to-pink-500', comic: 'BOOM!' },
-    { id: 4, name: 'Mie Ayam', price: 12000, emoji: '🍝', desc: 'Mie kenyal ayam juicy!', color: 'from-green-400 to-emerald-500', comic: 'YUM!' },
-    { id: 5, name: 'Mie Ayam Bakso', price: 15000, emoji: '🍜', desc: 'Combo super lengkap!', color: 'from-purple-400 to-pink-500', comic: 'WOW!' }
-  ];
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
 
   useEffect(() => {
-    // Generate comic bursts
+    // Ambil data menu secara dinamis dari API backend
+    fetchCatalog();
+
+    // Efek komik mengapung
     const bursts = Array.from({ length: 8 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
@@ -30,7 +69,6 @@ const BaksoWebsite = () => {
     }));
     setComicBursts(bursts);
 
-    // Generate floating stars
     const newStars = Array.from({ length: 15 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
@@ -40,6 +78,23 @@ const BaksoWebsite = () => {
     }));
     setStars(newStars);
   }, []);
+
+  const fetchCatalog = async () => {
+    setLoadingMenu(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/catalog');
+      const resData = await response.json();
+      if (response.ok) {
+        setMenuItems(resData.data);
+      } else {
+        console.error('Gagal memuat katalog:', resData.message);
+      }
+    } catch (err) {
+      console.error('Terjadi kesalahan koneksi saat memuat katalog:', err);
+    } finally {
+      setLoadingMenu(false);
+    }
+  };
 
   const addToCart = (item) => {
     const existing = cart.find(c => c.id === item.id);
@@ -65,55 +120,92 @@ const BaksoWebsite = () => {
   };
 
   const getTotalPrice = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    return cart.reduce((sum, item) => sum + (parseFloat(item.price) * item.qty), 0);
   };
 
   const getTotalItems = () => {
     return cart.reduce((sum, item) => sum + item.qty, 0);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!buyerName.trim() || !buyerAddress.trim()) {
       setValidationError('Nama dan Alamat Lengkap wajib diisi!');
       return;
     }
     setValidationError('');
+    setOrderSubmitting(true);
 
-    const formattedTotalPrice = getTotalPrice().toLocaleString('id-ID');
-    let orderDetails = `*🔥 PESANAN BARU - BAKSO KEJU LUMER 🔥*\n\n`;
-    orderDetails += `*Data Pembeli:*\n`;
-    orderDetails += `👤 *Nama:* ${buyerName.trim()}\n`;
-    orderDetails += `📍 *Alamat:* ${buyerAddress.trim()}\n\n`;
-    orderDetails += `*Detail Item:*\n`;
-    orderDetails += `----------------------------------------\n`;
-    
-    cart.forEach(item => {
-      const itemSubtotal = (item.price * item.qty).toLocaleString('id-ID');
-      orderDetails += `• *${item.name}*\n`;
-      orderDetails += `  Qty: ${item.qty}x\n`;
-      orderDetails += `  Harga: Rp ${item.price.toLocaleString('id-ID')}\n`;
-      orderDetails += `  Subtotal: Rp ${itemSubtotal}\n\n`;
-    });
-    
-    orderDetails += `----------------------------------------\n`;
-    orderDetails += `📦 *Total Item:* ${getTotalItems()}\n`;
-    orderDetails += `💰 *TOTAL BAYAR:* *Rp ${formattedTotalPrice}*\n\n`;
-    orderDetails += `Mohon segera diproses ya, terima kasih! 🙏`;
+    try {
+      // 1. Simpan Pesanan ke Database Supabase melalui backend API
+      const orderPayload = {
+        buyerName: buyerName.trim(),
+        buyerAddress: buyerAddress.trim(),
+        totalPrice: getTotalPrice(),
+        totalItems: getTotalItems(),
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: parseFloat(item.price),
+          qty: item.qty
+        }))
+      };
 
-    const encodedText = encodeURIComponent(orderDetails);
-    const whatsappUrl = `https://wa.me/6281311132611?text=${encodedText}`;
+      const response = await fetch('http://localhost:5000/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderPayload)
+      });
 
-    // Open WhatsApp link in new tab
-    window.open(whatsappUrl, '_blank');
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.message || 'Gagal menyimpan data pesanan ke database.');
+      }
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setCart([]);
-      setBuyerName('');
-      setBuyerAddress('');
-      setShowCart(false);
-    }, 3000);
+      // 2. Format Pesanan Terperinci untuk WhatsApp
+      const formattedTotalPrice = getTotalPrice().toLocaleString('id-ID');
+      let orderDetails = `*🔥 PESANAN BARU - BAKSO KEJU LUMER 🔥*\n\n`;
+      orderDetails += `*Data Pembeli:*\n`;
+      orderDetails += `👤 *Nama:* ${buyerName.trim()}\n`;
+      orderDetails += `📍 *Alamat:* ${buyerAddress.trim()}\n\n`;
+      orderDetails += `*Detail Item:*\n`;
+      orderDetails += `----------------------------------------\n`;
+      
+      cart.forEach(item => {
+        const itemSubtotal = (parseFloat(item.price) * item.qty).toLocaleString('id-ID');
+        orderDetails += `• *${item.name}*\n`;
+        orderDetails += `  Qty: ${item.qty}x\n`;
+        orderDetails += `  Harga: Rp ${parseFloat(item.price).toLocaleString('id-ID')}\n`;
+        orderDetails += `  Subtotal: Rp ${itemSubtotal}\n\n`;
+      });
+      
+      orderDetails += `----------------------------------------\n`;
+      orderDetails += `📦 *Total Item:* ${getTotalItems()}\n`;
+      orderDetails += `💰 *TOTAL BAYAR:* *Rp ${formattedTotalPrice}*\n\n`;
+      orderDetails += `Mohon segera diproses ya, terima kasih! 🙏`;
+
+      const encodedText = encodeURIComponent(orderDetails);
+      const whatsappUrl = `https://wa.me/6281311132611?text=${encodedText}`;
+
+      // Buka WA di tab baru
+      window.open(whatsappUrl, '_blank');
+
+      // Tampilkan notifikasi sukses
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setCart([]);
+        setBuyerName('');
+        setBuyerAddress('');
+        setShowCart(false);
+      }, 3000);
+
+    } catch (err) {
+      alert(`⚠️ Maaf, terjadi kesalahan: ${err.message || 'Gagal memproses pesanan.'}`);
+    } finally {
+      setOrderSubmitting(false);
+    }
   };
 
   return (
@@ -158,6 +250,17 @@ const BaksoWebsite = () => {
           {burst.text}
         </div>
       ))}
+
+      {/* Admin Quick Entry Button (Protected Portal) */}
+      <div className="absolute top-4 right-4 z-30">
+        <Link
+          to="/login"
+          className="bg-white hover:bg-yellow-300 text-gray-900 font-black px-4 py-2 border-4 border-black rounded-xl shadow-brutal text-sm flex items-center gap-1.5 transition-all transform hover:scale-105"
+        >
+          <ShieldAlert size={16} />
+          ADMIN PORTAL
+        </Link>
+      </div>
 
       {/* Action Lines */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -238,7 +341,6 @@ const BaksoWebsite = () => {
             </div>
           </div>
 
-          {/* Action Lines decoration */}
           <div className="flex justify-center gap-4 mt-8">
             <Zap className="text-yellow-400 animate-bounce" size={40} />
             <Star className="text-pink-400 animate-spin-slow" size={40} />
@@ -249,72 +351,79 @@ const BaksoWebsite = () => {
         {/* Menu Comic Panels */}
         <div className="bg-white rounded-3xl p-8 shadow-brutal mb-8 animate-slide-in border-8 border-black relative">
           {/* Comic book style header */}
-          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-red-600 to-pink-600 px-8 py-3 border-6 border-black shadow-brutal rotate-1">
-            <h3 className="text-4xl font-black text-white drop-shadow-lg">
-              📖 MENU SUPER SPECIAL!
+          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-red-600 to-pink-600 px-8 py-3 border-6 border-black shadow-brutal rotate-1 z-10">
+            <h3 className="text-4xl font-black text-white drop-shadow-lg flex items-center gap-2">
+              📖 KATALOG MENU LUMER!
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-            {menuItems.map((item, index) => (
-              <div
-                key={item.id}
-                className="relative group animate-pop-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                {/* Comic Panel Border */}
-                <div className={`bg-gradient-to-br ${item.color} rounded-2xl p-6 border-6 border-black shadow-brutal transform hover:-rotate-2 hover:scale-105 transition-all relative overflow-hidden`}>
-                  {/* Action burst corner */}
-                  <div className="absolute -top-3 -right-3 bg-yellow-400 border-4 border-black rounded-full w-16 h-16 flex items-center justify-center font-black text-sm transform rotate-12 shadow-lg">
-                    {item.comic}
-                  </div>
-
-                  {/* Halftone effect */}
-                  <div className="absolute inset-0 opacity-10" style={{
-                    backgroundImage: 'radial-gradient(circle, black 1px, transparent 1px)',
-                    backgroundSize: '10px 10px'
-                  }}></div>
-
-                  <div className="relative z-10">
-                    <div className="text-7xl mb-4 animate-wiggle-slow">{item.emoji}</div>
-                    
-                    {/* Speech bubble for name */}
-                    <div className="bg-white rounded-xl px-4 py-2 border-4 border-black mb-3 relative">
-                      <h4 className="text-xl font-black text-gray-900">{item.name}</h4>
-                      <div className="absolute -bottom-2 left-8 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-white"></div>
-                      <div className="absolute -bottom-3 left-7 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent border-t-black"></div>
-                    </div>
-
-                    <p className="text-white font-bold text-sm mb-4 italic drop-shadow-md">{item.desc}</p>
-                    
-                    <div className="flex justify-between items-center">
-                      {/* Price tag */}
-                      <div className="bg-yellow-400 border-4 border-black px-4 py-2 transform -rotate-3 shadow-md">
-                        <span className="text-2xl font-black text-gray-900">
-                          {item.price.toLocaleString('id-ID')}
-                        </span>
+          {loadingMenu ? (
+            <div className="text-center py-20">
+              <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-lg font-black text-gray-600">Sedang mengambil menu dari database...</p>
+            </div>
+          ) : menuItems.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50 border-4 border-black border-dashed rounded-2xl">
+              <p className="text-2xl font-black text-gray-500">😔 Katalog Kosong!</p>
+              <p className="text-sm font-bold text-gray-400 mt-1">Harap jalankan seeder database terlebih dahulu.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+              {menuItems.map((item, index) => {
+                // Ambil preset styling komik secara dinamis berdasarkan nama
+                const style = getStyling(item.name, index);
+                return (
+                  <div key={item.id} className="relative group animate-pop-in" style={{ animationDelay: `${index * 100}ms` }}>
+                    <div className={`bg-gradient-to-br ${style.color} rounded-2xl p-6 border-6 border-black shadow-brutal transform hover:-rotate-2 hover:scale-105 transition-all relative overflow-hidden`}>
+                      <div className="absolute -top-3 -right-3 bg-yellow-400 border-4 border-black rounded-full w-16 h-16 flex items-center justify-center font-black text-sm transform rotate-12 shadow-lg z-10">
+                        {style.comic}
                       </div>
-                      
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="bg-white hover:bg-yellow-300 text-gray-900 font-black px-6 py-3 rounded-xl border-4 border-black transition-all transform hover:scale-110 shadow-lg flex items-center gap-2 hover:rotate-3"
-                      >
-                        <Plus size={20} />
-                        BELI!
-                      </button>
+
+                      <div className="absolute inset-0 opacity-10" style={{
+                        backgroundImage: 'radial-gradient(circle, black 1px, transparent 1px)',
+                        backgroundSize: '10px 10px'
+                      }}></div>
+
+                      <div className="relative z-10">
+                        <div className="text-7xl mb-4 animate-wiggle-slow">{style.emoji}</div>
+                        
+                        <div className="bg-white rounded-xl px-4 py-2 border-4 border-black mb-3 relative">
+                          <h4 className="text-xl font-black text-gray-900">{item.name}</h4>
+                          <div className="absolute -bottom-2 left-8 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-white"></div>
+                          <div className="absolute -bottom-3 left-7 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent border-t-black"></div>
+                        </div>
+
+                        <p className="text-white font-bold text-sm mb-4 italic drop-shadow-md">{item.desc || 'Nikmat lumer tiada tara!'}</p>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="bg-yellow-400 border-4 border-black px-4 py-2 transform -rotate-3 shadow-md">
+                            <span className="text-2xl font-black text-gray-900">
+                              {parseFloat(item.price).toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                          
+                          <button
+                            onClick={() => addToCart(item)}
+                            className="bg-white hover:bg-yellow-300 text-gray-900 font-black px-6 py-3 rounded-xl border-4 border-black transition-all transform hover:scale-110 shadow-lg flex items-center gap-2 hover:rotate-3 cursor-pointer"
+                          >
+                            <Plus size={20} />
+                            BELI!
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Floating Cart Button */}
         {cart.length > 0 && (
           <button
             onClick={() => setShowCart(true)}
-            className="fixed bottom-8 right-8 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-black px-8 py-4 rounded-full border-6 border-black shadow-brutal transform hover:scale-110 hover:rotate-6 transition-all flex items-center gap-3 z-50 animate-bounce-slow"
+            className="fixed bottom-8 right-8 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-black px-8 py-4 rounded-full border-6 border-black shadow-brutal transform hover:scale-110 hover:rotate-6 transition-all flex items-center gap-3 z-50 animate-bounce-slow cursor-pointer"
           >
             <ShoppingCart size={28} />
             <span className="text-2xl font-black">{getTotalItems()}</span>
@@ -338,7 +447,7 @@ const BaksoWebsite = () => {
                 </div>
                 <button
                   onClick={() => setShowCart(false)}
-                  className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-full border-4 border-black transition-all transform hover:scale-110 hover:rotate-90 shadow-lg"
+                  className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-full border-4 border-black transition-all transform hover:scale-110 hover:rotate-90 shadow-lg cursor-pointer"
                 >
                   <X size={24} />
                 </button>
@@ -359,13 +468,13 @@ const BaksoWebsite = () => {
                             <h4 className="text-2xl font-black text-gray-900 mb-1">{item.name}</h4>
                             <div className="bg-yellow-400 inline-block px-3 py-1 border-3 border-black transform -rotate-2">
                               <p className="text-gray-900 text-lg font-black">
-                                Rp {item.price.toLocaleString('id-ID')}
+                                Rp {parseFloat(item.price).toLocaleString('id-ID')}
                               </p>
                             </div>
                           </div>
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full border-3 border-black transition-all transform hover:scale-110 hover:rotate-180 shadow-md"
+                            className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full border-3 border-black transition-all transform hover:scale-110 hover:rotate-180 shadow-md cursor-pointer"
                           >
                             <X size={20} />
                           </button>
@@ -374,21 +483,21 @@ const BaksoWebsite = () => {
                           <div className="flex items-center gap-4 bg-gray-100 rounded-full p-2 border-4 border-black">
                             <button
                               onClick={() => updateQty(item.id, -1)}
-                              className="bg-red-600 hover:bg-red-700 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all transform hover:scale-110 font-black border-3 border-black shadow-md"
+                              className="bg-red-600 hover:bg-red-700 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all transform hover:scale-110 font-black border-3 border-black shadow-md cursor-pointer"
                             >
                               <Minus size={20} />
                             </button>
                             <span className="text-3xl font-black text-gray-900 w-12 text-center">{item.qty}</span>
                             <button
                               onClick={() => updateQty(item.id, 1)}
-                              className="bg-green-600 hover:bg-green-700 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all transform hover:scale-110 font-black border-3 border-black shadow-md"
+                              className="bg-green-600 hover:bg-green-700 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all transform hover:scale-110 font-black border-3 border-black shadow-md cursor-pointer"
                             >
                               <Plus size={20} />
                             </button>
                           </div>
                           <div className="bg-pink-400 px-4 py-2 border-4 border-black transform rotate-2 shadow-md">
                             <span className="text-2xl font-black text-white drop-shadow-md">
-                              Rp {(item.price * item.qty).toLocaleString('id-ID')}
+                              Rp {(parseFloat(item.price) * item.qty).toLocaleString('id-ID')}
                             </span>
                           </div>
                         </div>
@@ -452,10 +561,19 @@ const BaksoWebsite = () => {
 
                   <button
                     onClick={handleCheckout}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black text-3xl py-6 rounded-2xl transition-all transform hover:scale-105 border-6 border-black shadow-brutal flex items-center justify-center gap-3"
+                    disabled={orderSubmitting}
+                    className={`w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black text-3xl py-6 rounded-2xl transition-all transform border-6 border-black shadow-brutal flex items-center justify-center gap-3 cursor-pointer ${
+                      orderSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:scale-105'
+                    }`}
                   >
-                    <Send size={32} />
-                    PESAN VIA WHATSAPP!
+                    {orderSubmitting ? (
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Send size={32} />
+                        PESAN VIA WHATSAPP!
+                      </>
+                    )}
                   </button>
                 </>
               )}
@@ -467,7 +585,6 @@ const BaksoWebsite = () => {
         {showSuccess && (
           <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 animate-fade-in">
             <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl p-12 text-center border-8 border-black shadow-brutal animate-pop-in relative">
-              {/* Success burst effects */}
               <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 text-6xl font-black text-yellow-400 animate-bounce"
                    style={{ textShadow: '4px 4px 0px #000' }}>
                 BERHASIL!
@@ -479,7 +596,6 @@ const BaksoWebsite = () => {
               </div>
               <p className="text-xl font-black text-white drop-shadow-lg">Silakan kirim pesan WhatsApp yang muncul.</p>
               
-              {/* Celebration stars */}
               <div className="absolute top-4 left-4 text-4xl animate-spin-slow">⭐</div>
               <div className="absolute top-4 right-4 text-4xl animate-spin-slow" style={{ animationDelay: '0.5s' }}>⭐</div>
               <div className="absolute bottom-4 left-8 text-4xl animate-bounce">🎊</div>
@@ -491,7 +607,7 @@ const BaksoWebsite = () => {
         {/* Footer Comic Strip */}
         <div className="text-center mt-12 animate-slide-in">
           <div className="inline-block bg-white rounded-3xl px-12 py-6 border-8 border-black shadow-brutal transform hover:rotate-2 transition-all">
-            <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-pink-600 mb-2">
+            <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-pink-600 mb-2 flex items-center justify-center gap-1">
               🌶️ PEDAS! NIKMAT! LUMER! 🧀
             </p>
             <p className="text-xl font-bold text-gray-700">Pesan sekarang juga! Dijamin NAGIH!</p>
@@ -499,7 +615,28 @@ const BaksoWebsite = () => {
         </div>
       </div>
 
-      <style jsx>{`
+    </div>
+  );
+};
+
+// ========================================================
+// 🛣️ MAIN NAVIGATION ROUTER ROUTING SYSTEM
+// ========================================================
+const BaksoWebsite = () => {
+  return (
+    <>
+      <Routes>
+        {/* Rute Depan: Toko/Storefront Pembeli */}
+        <Route path="/" element={<Storefront />} />
+        
+        {/* Rute Login Admin */}
+        <Route path="/login" element={<AdminLogin />} />
+        
+        {/* Rute Dashboard Seller Penjual */}
+        <Route path="/seller" element={<SellerDashboard />} />
+      </Routes>
+      
+      <style>{`
         @keyframes twinkle {
           0%, 100% { opacity: 0.3; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.2); }
@@ -580,8 +717,8 @@ const BaksoWebsite = () => {
           border-width: 3px;
         }
       `}</style>
-    </div>
+    </>
   );
 };
 
-export default BaksoWebsite
+export default BaksoWebsite;
