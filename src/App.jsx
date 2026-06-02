@@ -82,7 +82,7 @@ const Storefront = () => {
   const fetchCatalog = async () => {
     setLoadingMenu(true);
     try {
-      const response = await fetch('http://localhost:5000/api/catalog');
+      const response = await fetch('/api/catalog');
       const resData = await response.json();
       if (response.ok) {
         setMenuItems(resData.data);
@@ -150,7 +150,7 @@ const Storefront = () => {
         }))
       };
 
-      const response = await fetch('http://localhost:5000/api/orders', {
+      const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

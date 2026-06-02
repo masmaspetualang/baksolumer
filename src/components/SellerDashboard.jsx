@@ -42,7 +42,7 @@ const SellerDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/api/orders', {
+      const response = await fetch('/api/orders', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -68,7 +68,7 @@ const SellerDashboard = () => {
 
   const fetchCatalog = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/catalog');
+      const response = await fetch('/api/catalog');
       const resData = await response.json();
       if (response.ok) {
         setCatalog(resData.data);
@@ -92,7 +92,7 @@ const SellerDashboard = () => {
     const nextStatus = currentStatus === 'Pending' ? 'Selesai' : 'Pending';
     setActionLoading({ id, type: 'status' });
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${id}`, {
+      const response = await fetch(`/api/orders/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +117,7 @@ const SellerDashboard = () => {
     
     setActionLoading({ id, type: 'delete' });
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${id}`, {
+      const response = await fetch(`/api/orders/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -138,7 +138,7 @@ const SellerDashboard = () => {
   const handleClearAllOrders = async () => {
     setActionLoading({ id: 'all', type: 'clear' });
     try {
-      const response = await fetch('http://localhost:5000/api/orders/all/clear', {
+      const response = await fetch('/api/orders/all/clear', {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -193,8 +193,8 @@ const SellerDashboard = () => {
     setLoading(true);
     try {
       const url = editingItem 
-        ? `http://localhost:5000/api/catalog/${editingItem.id}` 
-        : 'http://localhost:5000/api/catalog';
+        ? `/api/catalog/${editingItem.id}` 
+        : '/api/catalog';
       
       const method = editingItem ? 'PATCH' : 'POST';
 
@@ -228,7 +228,7 @@ const SellerDashboard = () => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus menu ini dari katalog? Item di dalam pesanan lama yang sudah tercatat tidak akan ikut terhapus.')) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/catalog/${id}`, {
+      const response = await fetch(`/api/catalog/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
