@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Key, User, ArrowLeft, AlertCircle } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
@@ -41,10 +42,34 @@ const AdminLogin = () => {
       localStorage.setItem('adminToken', resData.data.token);
       localStorage.setItem('adminUser', JSON.stringify(resData.data.user));
 
-      // Arahkan ke dashboard penjual
-      navigate('/seller');
+      Swal.fire({
+        title: 'LOGIN SUKSES! 🎉',
+        text: `Selamat datang, ${resData.data.user.username || 'Admin'}!`,
+        icon: 'success',
+        timer: 1500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'border-8 border-black rounded-3xl bg-white',
+          title: 'font-black text-gray-900',
+        },
+      }).then(() => {
+        navigate('/seller');
+      });
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan saat menghubungi server.');
+      Swal.fire({
+        title: 'LOGIN GAGAL! ❌',
+        text: err.message || 'Username atau password salah.',
+        icon: 'error',
+        confirmButtonText: 'COBA LAGI',
+        customClass: {
+          popup: 'border-8 border-black rounded-3xl shadow-brutal bg-white',
+          title: 'font-black text-gray-900',
+          confirmButton: 'bg-red-500 text-white border-4 border-black font-black px-6 py-3 rounded-xl hover:bg-red-600 transition-all'
+        },
+        buttonsStyling: false
+      });
     } finally {
       setLoading(false);
     }

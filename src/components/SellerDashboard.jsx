@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Trash2, CheckCircle2, Clock, AlertTriangle, RefreshCw, Edit, Plus, X, Save, FileText, ShoppingBag } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const SellerDashboard = () => {
   // Tabs State: 'orders' | 'catalog'
@@ -105,15 +106,34 @@ const SellerDashboard = () => {
       if (!response.ok) throw new Error(resData.message || 'Gagal mengubah status.');
 
       setOrders(orders.map(o => o.id === id ? { ...o, status: nextStatus } : o));
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: nextStatus === 'Selesai' ? '✅ Pesanan ditandai Selesai!' : '🔄 Status dikembalikan ke Pending',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+      });
     } catch (err) {
-      alert(err.message);
+      Swal.fire({ icon: 'error', title: 'Gagal!', text: err.message, confirmButtonText: 'OK', buttonsStyling: true });
     } finally {
       setActionLoading({ id: null, type: '' });
     }
   };
 
   const handleDeleteOrder = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus pesanan ini secara permanen dari database?')) return;
+    const result = await Swal.fire({
+      title: 'Hapus Pesanan? 🗑️',
+      text: 'Pesanan ini akan dihapus permanen dari database. Tindakan tidak dapat dibatalkan!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'YA, HAPUS!',
+      cancelButtonText: 'BATAL',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
     
     setActionLoading({ id, type: 'delete' });
     try {
@@ -128,14 +148,35 @@ const SellerDashboard = () => {
       if (!response.ok) throw new Error(resData.message || 'Gagal menghapus pesanan.');
 
       setOrders(orders.filter(o => o.id !== id));
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '🗑️ Pesanan berhasil dihapus!',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+      });
     } catch (err) {
-      alert(err.message);
+      Swal.fire({ icon: 'error', title: 'Gagal!', text: err.message });
     } finally {
       setActionLoading({ id: null, type: '' });
     }
   };
 
   const handleClearAllOrders = async () => {
+    const result = await Swal.fire({
+      title: '⚠️ HAPUS SEMUA PESANAN?',
+      html: '<b>Seluruh riwayat pesanan</b> akan dihapus permanen dari database.<br/>Tindakan ini <u>tidak bisa dibatalkan</u>!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '🗑️ YA, HAPUS SEMUA!',
+      cancelButtonText: 'BATAL',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
+
     setActionLoading({ id: 'all', type: 'clear' });
     try {
       const response = await fetch('/api/orders/all/clear', {
@@ -150,8 +191,17 @@ const SellerDashboard = () => {
 
       setOrders([]);
       setConfirmClearAll(false);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '🗑️ Semua pesanan berhasil dihapus!',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
     } catch (err) {
-      alert(err.message);
+      Swal.fire({ icon: 'error', title: 'Gagal!', text: err.message });
     } finally {
       setActionLoading({ id: null, type: '' });
     }
@@ -180,13 +230,13 @@ const SellerDashboard = () => {
   const handleSaveCatalogItem = async (e) => {
     e.preventDefault();
     if (!itemName.trim() || !itemPrice.trim()) {
-      alert('Nama Menu dan Harga wajib diisi!');
+      Swal.fire({ icon: 'warning', title: 'Data Tidak Lengkap!', text: 'Nama Menu dan Harga wajib diisi!', confirmButtonText: 'OK' });
       return;
     }
 
     const priceNum = parseFloat(itemPrice);
     if (isNaN(priceNum) || priceNum <= 0) {
-      alert('Harga harus berupa angka valid di atas 0!');
+      Swal.fire({ icon: 'warning', title: 'Harga Tidak Valid!', text: 'Harga harus berupa angka yang valid dan di atas 0!', confirmButtonText: 'OK' });
       return;
     }
 
@@ -217,15 +267,34 @@ const SellerDashboard = () => {
       // Refresh katalog data lokal
       await fetchCatalog();
       setShowCatalogModal(false);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: editingItem ? '✏️ Menu berhasil diperbarui!' : '➕ Menu baru berhasil ditambahkan!',
+        showConfirmButton: false,
+        timer: 2500,
+        timerProgressBar: true,
+      });
     } catch (err) {
-      alert(err.message);
+      Swal.fire({ icon: 'error', title: 'Gagal Menyimpan!', text: err.message });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteCatalogItem = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus menu ini dari katalog? Item di dalam pesanan lama yang sudah tercatat tidak akan ikut terhapus.')) return;
+    const result = await Swal.fire({
+      title: 'Hapus Menu Ini? 🗑️',
+      text: 'Menu ini akan dihapus dari katalog. Pesanan lama yang sudah tercatat tidak akan terpengaruh.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'YA, HAPUS!',
+      cancelButtonText: 'BATAL',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
 
     try {
       const response = await fetch(`/api/catalog/${id}`, {
@@ -239,8 +308,17 @@ const SellerDashboard = () => {
       if (!response.ok) throw new Error(resData.message || 'Gagal menghapus menu katalog.');
 
       setCatalog(catalog.filter(c => c.id !== id));
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '🗑️ Menu berhasil dihapus dari katalog!',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+      });
     } catch (err) {
-      alert(err.message);
+      Swal.fire({ icon: 'error', title: 'Gagal!', text: err.message });
     }
   };
 
@@ -327,7 +405,7 @@ const SellerDashboard = () => {
           <button
             onClick={() => setActiveTab('catalog')}
             className={`flex-1 md:flex-initial bg-white font-black px-6 py-4 rounded-2xl border-4 border-black shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all transform hover:scale-102 ${
-              activeTab === 'catalog' ? 'bg-pink-400 text-white -rotate-1 shadow-brutal border-6' : 'hover:bg-gray-100 text-gray-700'
+              activeTab === 'catalog' ? 'bg-yellow-400 text-gray-900 rotate-1 shadow-brutal border-6' : 'hover:bg-gray-100 text-gray-700'
             }`}
           >
             <ShoppingBag size={24} />
@@ -347,7 +425,7 @@ const SellerDashboard = () => {
               
               {orders.length > 0 && (
                 <button
-                  onClick={() => setConfirmClearAll(true)}
+                  onClick={handleClearAllOrders}
                   className="bg-red-500 hover:bg-red-600 text-white font-black px-5 py-3 rounded-xl border-4 border-black transition-all transform hover:scale-105 active:scale-95 shadow-md flex items-center gap-2 cursor-pointer hover:-rotate-2"
                 >
                   <Trash2 size={20} />
@@ -658,42 +736,6 @@ const SellerDashboard = () => {
         </div>
       )}
 
-      {/* Modal Dialog Konfirmasi Hapus Semua Data */}
-      {confirmClearAll && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full border-8 border-black shadow-brutal animate-pop-in text-center">
-            <div className="text-6xl mb-4 text-red-500 animate-bounce">⚠️</div>
-            <h3 className="text-3xl font-black text-gray-900 mb-3">KONFIRMASI HAPUS DATA</h3>
-            <p className="text-gray-600 font-bold mb-6">
-              Apakah Anda yakin ingin **menghapus seluruh data pesanan** secara permanen dari database Supabase? Tindakan ini tidak dapat dibatalkan!
-            </p>
-            
-            <div className="flex gap-4">
-              <button
-                onClick={() => setConfirmClearAll(false)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-black py-4 rounded-xl border-4 border-black transition-all transform active:scale-95 cursor-pointer shadow-md"
-              >
-                BATALKAN
-              </button>
-              
-              <button
-                onClick={handleClearAllOrders}
-                disabled={actionLoading.id === 'all' && actionLoading.type === 'clear'}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-black py-4 rounded-xl border-4 border-black transition-all transform active:scale-95 cursor-pointer shadow-brutal flex items-center justify-center gap-2"
-              >
-                {actionLoading.id === 'all' && actionLoading.type === 'clear' ? (
-                  <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <Trash2 size={20} />
-                    HAPUS SEMUA!
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
